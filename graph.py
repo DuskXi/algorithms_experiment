@@ -17,6 +17,10 @@ class Graph:
         self.edges = []
         self.directed = directed
 
+    def merge(self, graph):
+        self.nodes += graph.nodes
+        self.edges += graph.edges
+
     def weight_less_edges(self):
         return list(map(lambda x: (x[0], x[1]), self.edges))
 
@@ -75,7 +79,7 @@ class Graph:
             adjacency_matrix[edge[0], edge[1]] = edge[2]
         return adjacency_matrix
 
-    def draw(self, fig=None, ax=None):
+    def draw(self, fig=None, ax=None, alpha=0.5, integer=False):
         if self.directed:
             G = nx.from_numpy_array(self.adjacency_matrix(), create_using=nx.DiGraph)
         else:
@@ -85,7 +89,7 @@ class Graph:
             fig, ax = plt.subplots()
         nx.draw(G, pos, ax=ax, with_labels=True)
         labels = nx.get_edge_attributes(G, "weight")
-        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels)
+        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels if not integer else {k: str(int(v)) for k, v in labels.items()}, alpha=alpha)
         return fig, ax
 
     def set_edge_color(self, edge_color):
@@ -95,14 +99,14 @@ class Graph:
         # return sort by edge array
         return [self.edge_colors[edge] for edge in self.weight_less_edges()]
 
-    def draw_graphviz(self, fig=None, ax=None):
+    def draw_graphviz(self, fig=None, ax=None, alpha=0.5, integer=False):
         if fig is None or ax is None:
             fig, ax = plt.subplots()
         G = nx.from_numpy_array(self.adjacency_matrix(), create_using=nx.DiGraph)
         pos = graphviz_layout(G, prog='dot')
         nx.draw(G, pos, ax=ax, with_labels=True)
         labels = nx.get_edge_attributes(G, "weight")
-        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels)
+        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels if not integer else {k: str(int(v)) for k, v in labels.items()}, alpha=alpha)
         return fig, ax
 
     @staticmethod
@@ -117,7 +121,7 @@ class Graph:
         # 如果random_zero为True，则随机将一些值设置为0
         if random_zero:
             adj_matrix = np.where(np.random.randint(0, 2, size=(num_nodes, num_nodes)), adj_matrix, 0)
-        adj_matrix = np.array(adj_matrix, dtype=np.int64)
+        adj_matrix = np.array(adj_matrix, dtype=np.int)
         graph = Graph(directed=directed)
         for i in range(num_nodes):
             graph.add_node(i)
@@ -128,10 +132,17 @@ class Graph:
 
         return graph
 
+    @staticmethod
+    def from_adjacency_matrix(adjacency_matrix, directed=False):
+        graph = Graph(directed=directed)
+        for i in range(adjacency_matrix.shape[0]):
+            graph.add_node(i)
+        for i in range(adjacency_matrix.shape[0]):
+            for j in range(adjacency_matrix.shape[0]):
+                if adjacency_matrix[i, j] != 0:
+                    graph.add_edge(i, j, adjacency_matrix[i, j])
 
-class Path:
-    def __init__(self):
-        self.nodes = []
+        return graph
 
 
 class TreeNode:
@@ -164,20 +175,20 @@ class TreeNode:
             for child in self.children:
                 child.prune()
 
-    def to_graph(self):
+    def to_graph(self, enable_con=False):
         graph = Graph()
         graph.add_node(self.data)
-        self.add_to_graph(graph)
+        self.add_to_graph(graph, enable_con=enable_con)
         return graph
 
-    def add_to_graph(self, graph):
+    def add_to_graph(self, graph, con=0, enable_con=False):
         for child in self.children:
             graph.add_node(child.data)
-            graph.add_edge(graph.nodes.index(self.data), graph.nodes.index(child.data), 1 if not child.weight else self.weight)
-            child.add_to_graph(graph)
+            graph.add_edge(graph.nodes.index(self.data), graph.nodes.index(child.data), con + (1 if not child.weight else child.weight))
+            child.add_to_graph(graph, con + (1 if not child.weight else child.weight) if enable_con else 0, enable_con)
 
-    def draw(self, fig=None, ax=None):
-        graph = self.to_graph()
+    def draw(self, fig=None, ax=None, enable_con=True):
+        graph = self.to_graph(enable_con=enable_con)
         G = nx.from_numpy_array(graph.adjacency_matrix())
         # add node label to graph
         labels = {}
@@ -190,7 +201,8 @@ class TreeNode:
             fig, ax = plt.subplots()
         nx.draw(G, pos, ax=ax, with_labels=True, labels=labels)
         labels = nx.get_edge_attributes(G, "weight")
-        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels)
+        # draw with int
+        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels={k: str(int(v)) for k, v in labels.items()})
         return fig, ax
 
     @staticmethod
@@ -216,20 +228,3 @@ class TreeNode:
                 return None
 
         return _generate_node(None, depth)
-
-
-class TreeGraph(Graph):
-    def __init__(self):
-        super().__init__(False)
-        root = 0
-
-    # noinspection PyMethodOverriding
-    def add_node(self, parent, node):
-        self.nodes.append(node)
-        self.edges.append((parent, node, 1))
-
-    def delete_node(self, node):
-        self.nodes.remove(node)
-        for edge in self.edges:
-            if edge[0] == node or edge[1] == node:
-                self.edges.remove(edge)
