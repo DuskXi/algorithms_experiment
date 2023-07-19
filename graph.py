@@ -187,7 +187,7 @@ class TreeNode:
             graph.add_edge(graph.nodes.index(self.data), graph.nodes.index(child.data), con + (1 if not child.weight else child.weight))
             child.add_to_graph(graph, con + (1 if not child.weight else child.weight) if enable_con else 0, enable_con)
 
-    def draw(self, fig=None, ax=None, enable_con=True):
+    def draw(self, fig=None, ax=None, enable_con=True, show_weight=True):
         graph = self.to_graph(enable_con=enable_con)
         G = nx.from_numpy_array(graph.adjacency_matrix())
         # add node label to graph
@@ -200,9 +200,10 @@ class TreeNode:
         if fig is None or ax is None:
             fig, ax = plt.subplots()
         nx.draw(G, pos, ax=ax, with_labels=True, labels=labels)
-        labels = nx.get_edge_attributes(G, "weight")
-        # draw with int
-        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels={k: str(int(v)) for k, v in labels.items()})
+        if show_weight:
+            labels = nx.get_edge_attributes(G, "weight")
+            # draw with int
+            nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels={k: str(int(v)) for k, v in labels.items()})
         return fig, ax
 
     @staticmethod
