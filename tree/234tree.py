@@ -53,16 +53,16 @@ class Tree234:
             # If the root is a 2-node,
             # and its children are 2-nodes,
             # fuse it with its children
-            if len(self.data) > 1:
-                # check is it all child are 2 node
-                is_2 = True
-                for child in self.children:
-                    if len(child.data) != 1:
-                        is_2 = False
-                        break
-                if is_2:
-                    # fuse
-                    self.children[-1].fuse()
+            # if len(self.data) > 1:
+            #     # check is it all child are 2 node
+            #     is_2 = True
+            #     for child in self.children:
+            #         if len(child.data) != 1:
+            #             is_2 = False
+            #             break
+            #     if is_2:
+            #         # fuse
+            #         self.children[-1].fuse()
             last = self.data[0]
             if value < self.data[0]:
                 return self.children[0].find_with_fuse(value)
@@ -78,7 +78,7 @@ class Tree234:
     def find_replace(self, direct="left", depth=0):
         i = 0 if direct == "left" else -1
         if len(self.children) == 0:
-            return self.data[i]
+            return self, self.data[i]
         if depth == 0:
             direct = "left" if direct == "right" else "right"
         return self.children[i].find_replace(direct, depth + 1)
@@ -112,6 +112,8 @@ class Tree234:
                     if direct == 'left':
                         self.parent.data = brother.data + [self.parent.data[0]] + self.data
                         self.parent.children = brother.children + self.children
+                        for child in self.parent.children:
+                            child.parent = self.parent
                         brother.parent = None
                         brother.data = None
                         brother.children = None
@@ -119,6 +121,8 @@ class Tree234:
                     else:
                         self.parent.data = self.data + [self.parent.data[0]] + brother.data
                         self.parent.children = self.children + brother.children
+                        for child in self.parent.children:
+                            child.parent = self.parent
                         brother.parent = None
                         brother.data = None
                         brother.children = None
@@ -216,10 +220,9 @@ class Tree234:
                         direct = "left"
                     elif index + 1 >= len(node.data) / 2:
                         direct = "right"
-                replace = node.find_replace(direct)
-                node.data[index] = replace
-                child = node.children[0] if direct == "left" else node.children[-1]
-                child.delete(replace)
+                replace, v = node.find_replace(direct)
+                node.data[index] = v
+                replace.delete(v)
 
     def to_tree(self, parent=None):
         node = TreeNode(parent, str(self.data))
@@ -261,30 +264,36 @@ def test_fuse_delete():
     plt.title('2-3-4 Tree' + title)
     plt.show()
 
-    tree.delete(12)
-
-    fig, ax, title = tree.draw()
-    plt.title('2-3-4 Tree' + title)
-    plt.show()
-
-    tree.delete(11)
-
-    fig, ax, title = tree.draw()
-    plt.title('2-3-4 Tree' + title)
-    plt.show()
-
-    tree.delete(10)
-    tree.delete(9)
-
-    fig, ax, title = tree.draw()
-    plt.title('2-3-4 Tree' + title)
-    plt.show()
+    # tree.delete(12)
+    #
+    # fig, ax, title = tree.draw()
+    # plt.title('2-3-4 Tree' + title)
+    # plt.show()
+    #
+    # tree.delete(11)
+    #
+    # fig, ax, title = tree.draw()
+    # plt.title('2-3-4 Tree' + title)
+    # plt.show()
+    #
+    # tree.delete(10)
+    # tree.delete(9)
+    #
+    # fig, ax, title = tree.draw()
+    # plt.title('2-3-4 Tree' + title)
+    # plt.show()
+    #
+    # tree.delete(8)
+    # fig, ax, title = tree.draw()
+    # plt.title('2-3-4 Tree' + title)
+    # plt.show()
+    # tree.delete(6)
+    # fig, ax, title = tree.draw()
+    # plt.title('2-3-4 Tree' + title)
+    # plt.show()
 
     tree.delete(8)
-    fig, ax, title = tree.draw()
-    plt.title('2-3-4 Tree' + title)
-    plt.show()
-    tree.delete(6)
+
     fig, ax, title = tree.draw()
     plt.title('2-3-4 Tree' + title)
     plt.show()
