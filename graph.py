@@ -67,6 +67,14 @@ class Graph:
         if not self.directed:
             self.edges.append((node_2, node_1, 1))
 
+    def set_edge_weight(self, node_1, node_2, w):
+        for i, edge in enumerate(self.edges):
+            if edge[0] == node_1 and edge[1] == node_2:
+                self.edges[i] = (node_1, node_2, w)
+                return
+
+        self.edges.append((node_1, node_2, w))
+
     def adjacency_list(self):
         adjacency_list = {}
         for node in self.nodes:
@@ -78,6 +86,16 @@ class Graph:
         for edge in self.edges:
             adjacency_matrix[edge[0], edge[1]] = edge[2]
         return adjacency_matrix
+
+    @staticmethod
+    def from_adjacency_matrix(adjacency_matrix: np.ndarray, directed=False):
+        graph = Graph(directed=directed)
+        graph.nodes = list(range(len(adjacency_matrix)))
+        for i in range(len(adjacency_matrix)):
+            for j in range(len(adjacency_matrix)):
+                if adjacency_matrix[i, j] != 0:
+                    graph.edges.append((i, j, adjacency_matrix[i, j]))
+        return graph
 
     def draw(self, fig=None, ax=None, alpha=0.5, integer=False):
         if self.directed:
@@ -91,6 +109,69 @@ class Graph:
         labels = nx.get_edge_attributes(G, "weight")
         nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels if not integer else {k: str(int(v)) for k, v in labels.items()}, alpha=alpha)
         return fig, ax
+
+    def draw_as_flow_network(self, flow: np.ndarray, fig=None, ax=None, s=-1, t=-1, alpha=0.5, integer=True, kamada=True, f=True, pos=None):
+        adjacency_matrix = self.adjacency_matrix()
+        if s == -1 or s not in self.nodes:
+            s = self.nodes[0]
+        if t == -1 or t not in self.nodes:
+            t = self.nodes[-1]
+        G = nx.MultiDiGraph()
+
+        # 添加边和它们的属性
+        for i in range(adjacency_matrix.shape[0]):
+            for j in range(i + 1, adjacency_matrix.shape[1]):
+                if adjacency_matrix[i, j] != 0:
+                    G.add_edge(i, j, capacity=adjacency_matrix[i, j], flow=flow[i, j])
+                if adjacency_matrix[j, i] != 0:
+                    G.add_edge(j, i, capacity=adjacency_matrix[j, i], flow=flow[j, i])
+        if pos is None:
+            if kamada:
+                pos = nx.kamada_kawai_layout(G)
+            else:
+                # 将所有节点的位置向右移动，使得源节点s的位置为0
+                pos = nx.spectral_layout(G)
+                # min_x = min(pos_x for pos_x, pos_y in pos.values())
+                # for node in pos:
+                #     pos[node][0] -= min_x
+                #     if pos[node][0] <= pos[s][0] + 0.01 and s != node:
+                #         pos[node][0] = pos[s][0] + 0.1
+                #         pos[node][1] = pos[s][1] - 0.7
+                #
+                # # 确保目标节点t在最右边
+                # max_x = max(pos_x for pos_x, pos_y in pos.values())
+                # pos[t][0] = max_x
+
+        nx.draw_networkx_nodes(G, pos, ax=ax, node_size=600)
+        for edge in G.edges(data=True):
+            if (edge[1], edge[0]) in G.edges():  # Check if the reverse edge exists
+                # This is a bidirectional edge
+                nx.draw_networkx_edges(G, pos, ax=ax, edgelist=[(edge[0], edge[1])], connectionstyle="arc3,rad=0.2", edge_color='k', arrowstyle='-|>', arrowsize=20)
+            else:
+                # This is a unidirectional edge
+                nx.draw_networkx_edges(G, pos, ax=ax, edgelist=[(edge[0], edge[1])], edge_color='k', arrowstyle='-|>', arrowsize=20)
+
+        if f:
+            edge_labels_forward = {(edge[0], edge[1]): f"{int(edge[2]['flow'])}/{int(edge[2]['capacity'])}" for edge in G.edges(data=True) if edge[0] < edge[1]}
+            edge_labels_backward = {(edge[0], edge[1]): f"{int(edge[2]['flow'])}/{int(edge[2]['capacity'])}" for edge in G.edges(data=True) if edge[0] > edge[1]}
+        else:
+            edge_labels_forward = {(edge[0], edge[1]): f"{int(edge[2]['capacity'])}" for edge in G.edges(data=True) if edge[0] < edge[1]}
+            edge_labels_backward = {(edge[0], edge[1]): f"{int(edge[2]['capacity'])}" for edge in G.edges(data=True) if edge[0] > edge[1]}
+
+        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=edge_labels_forward, verticalalignment='bottom')
+        nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=edge_labels_backward, verticalalignment='top')
+        # 创建源节点和目标节点的标签
+        node_labels = {s: 's', t: 't'}
+
+        # 绘制源节点和目标节点的标签
+        nx.draw_networkx_labels(G, pos, labels=node_labels, font_color='red')
+
+        other_nodes = set(G.nodes()) - {s, t}
+        other_labels = {node: node for node in other_nodes}
+        nx.draw_networkx_labels(G, pos, labels=other_labels)
+        # edge_labels = nx.get_edge_attributes(G, 'capacity')
+        # nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=edge_labels)
+        return fig, ax, pos
 
     def set_edge_color(self, edge_color):
         self.edge_colors = edge_color
@@ -129,18 +210,6 @@ class Graph:
             for j in range(num_nodes):
                 if adj_matrix[i, j] != 0:
                     graph.add_edge(i, j, adj_matrix[i, j])
-
-        return graph
-
-    @staticmethod
-    def from_adjacency_matrix(adjacency_matrix, directed=False):
-        graph = Graph(directed=directed)
-        for i in range(adjacency_matrix.shape[0]):
-            graph.add_node(i)
-        for i in range(adjacency_matrix.shape[0]):
-            for j in range(adjacency_matrix.shape[0]):
-                if adjacency_matrix[i, j] != 0:
-                    graph.add_edge(i, j, adjacency_matrix[i, j])
 
         return graph
 
