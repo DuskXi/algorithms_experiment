@@ -15,6 +15,7 @@ class Graph:
         self.nodes = []
         # [(node_1,node_2, w)]
         self.edges = []
+        self.node_table = {}
         self.directed = directed
 
     def merge(self, graph):
@@ -25,9 +26,12 @@ class Graph:
         return list(map(lambda x: (x[0], x[1]), self.edges))
 
     def connected(self, node_1, node_2):
+        # node_1 = self.node_table[str(node_1)] if type(node_1) != int else node_1
+        # node_2 = self.node_table[str(node_2)] if type(node_2) != int else node_2
         return node_1 in self.neighbors(node_2)
 
     def neighbors(self, node):
+        # node = self.node_table[str(node)] if type(node) != int else node
         neighbors = []
         for edge in self.edges:
             if edge[0] == node and edge[1] not in neighbors:
@@ -37,6 +41,7 @@ class Graph:
         return neighbors
 
     def neighbors_edges(self, node):
+        # node = self.node_table[str(node)] if type(node) != int else node
         neighbors = []
         for edge in self.edges:
             if edge[0] == node and edge[1] not in neighbors:
@@ -46,6 +51,8 @@ class Graph:
         return neighbors
 
     def get_edge_weight(self, node_1, node_2):
+        # node_1 = self.node_table[str(node_1)] if type(node_1) != int else node_1
+        # node_2 = self.node_table[str(node_2)] if type(node_2) != int else node_2
         for edge in self.edges:
             if edge[0] == node_1 and edge[1] == node_2:
                 return edge[2]
@@ -54,20 +61,32 @@ class Graph:
         return None
 
     def add_node(self, node):
+        # if type(node) != int:
+        #     node_str = str(node)
+        #     node = len(self.nodes)
+        # else:
+        #     node_str = str(node)
         self.nodes.append(node)
+        # self.node_table[node_str] = node
         self.edge_colors[node] = 'black'
 
     def add_edge(self, node_1, node_2, w):
+        node_1 = self.nodes.index(str(node_1)) if type(node_1) != int else node_1
+        node_2 = self.nodes.index(str(node_2)) if type(node_2) != int else node_2
         self.edges.append((node_1, node_2, w))
         if not self.directed:
             self.edges.append((node_2, node_1, w))
 
     def add_weight_less_edge(self, node_1, node_2):
+        node_1 = self.nodes.index(str(node_1)) if type(node_1) != int else node_1
+        node_2 = self.nodes.index(str(node_2)) if type(node_2) != int else node_2
         self.edges.append((node_1, node_2, 1))
         if not self.directed:
             self.edges.append((node_2, node_1, 1))
 
     def set_edge_weight(self, node_1, node_2, w):
+        node_1 = self.nodes.index(str(node_1)) if type(node_1) != int else node_1
+        node_2 = self.nodes.index(str(node_2)) if type(node_2) != int else node_2
         for i, edge in enumerate(self.edges):
             if edge[0] == node_1 and edge[1] == node_2:
                 self.edges[i] = (node_1, node_2, w)
@@ -81,8 +100,9 @@ class Graph:
             adjacency_list[node] = self.neighbors(node)
         return adjacency_list
 
-    def adjacency_matrix(self):
-        adjacency_matrix = np.zeros((len(self.nodes), len(self.nodes)))
+    def adjacency_matrix(self, dtype='float32'):
+        adjacency_matrix = np.zeros((len(self.nodes), len(self.nodes)), dtype=dtype)
+        adjacency_matrix.fill(None)
         for edge in self.edges:
             adjacency_matrix[edge[0], edge[1]] = edge[2]
         return adjacency_matrix
@@ -110,6 +130,38 @@ class Graph:
         nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels if not integer else {k: str(int(v)) for k, v in labels.items()}, alpha=alpha)
         return fig, ax
 
+    def draw_as_label_weight(self, fig=None, ax=None, alpha=0.5):
+        adjacency_matrix = self.adjacency_matrix('object')
+        G = nx.DiGraph() if self.directed else nx.MultiGraph()
+        for i in range(adjacency_matrix.shape[0]):
+            for j in range(adjacency_matrix.shape[1]):
+                if adjacency_matrix[j, i] is not None:
+                    G.add_edge(self.nodes[i], self.nodes[j], label=adjacency_matrix[i, j])
+        pos = nx.spring_layout(G)
+        if fig is None or ax is None:
+            fig, ax = plt.subplots()
+        # nx.draw(G, pos, ax=ax, with_labels=True, connectionstyle='arc3, rad=0.2')
+
+        nx.draw_networkx_nodes(G, pos, ax=ax, node_size=600)
+        nx.draw_networkx_labels(G, pos, ax=ax)
+        labels = nx.get_edge_attributes(G, "label")
+        edge_labels_local = {}
+        for edge in G.edges(data=True):
+            if (edge[1], edge[0]) in G.edges() and edge[0] != edge[1]:  # Check if the reverse edge exists
+                # This is a bidirectional edge
+                nx.draw_networkx_edges(G, pos, ax=ax, edgelist=[(edge[0], edge[1])], connectionstyle="arc3,rad=0.2", edge_color='k', arrowstyle='-|>', arrowsize=20)
+            else:
+                # This is a unidirectional edge
+                nx.draw_networkx_edges(G, pos, ax=ax, edgelist=[(edge[0], edge[1])], edge_color='k', arrowstyle='-|>', arrowsize=20)
+            if edge[0] == edge[1]:
+                edge_labels_local[(edge[0], edge[1])] = labels[(edge[0], edge[1])]
+                del labels[(edge[0], edge[1])]
+
+        my_draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels, alpha=alpha, rotate=False, rad=0.2)
+        my_draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=edge_labels_local, alpha=alpha, rotate=False, rad=0.2, vertical_offset=0.2)
+
+        return fig, ax
+
     def draw_as_flow_network(self, flow: np.ndarray, fig=None, ax=None, s=-1, t=-1, alpha=0.5, integer=True, kamada=True, f=True, pos=None):
         adjacency_matrix = self.adjacency_matrix()
         if s == -1 or s not in self.nodes:
@@ -129,18 +181,7 @@ class Graph:
             if kamada:
                 pos = nx.kamada_kawai_layout(G)
             else:
-                # 将所有节点的位置向右移动，使得源节点s的位置为0
                 pos = nx.spectral_layout(G)
-                # min_x = min(pos_x for pos_x, pos_y in pos.values())
-                # for node in pos:
-                #     pos[node][0] -= min_x
-                #     if pos[node][0] <= pos[s][0] + 0.01 and s != node:
-                #         pos[node][0] = pos[s][0] + 0.1
-                #         pos[node][1] = pos[s][1] - 0.7
-                #
-                # # 确保目标节点t在最右边
-                # max_x = max(pos_x for pos_x, pos_y in pos.values())
-                # pos[t][0] = max_x
 
         nx.draw_networkx_nodes(G, pos, ax=ax, node_size=600)
         for edge in G.edges(data=True):
@@ -298,3 +339,178 @@ class TreeNode:
                 return None
 
         return _generate_node(None, depth)
+
+
+def my_draw_networkx_edge_labels(
+        G,
+        pos,
+        edge_labels=None,
+        label_pos=0.5,
+        font_size=10,
+        font_color="k",
+        font_family="sans-serif",
+        font_weight="normal",
+        alpha=None,
+        bbox=None,
+        horizontalalignment="center",
+        verticalalignment="center",
+        ax=None,
+        rotate=True,
+        clip_on=True,
+        rad=0.0,
+        vertical_offset=0.0
+):
+    """Draw edge labels.
+
+    Parameters
+    ----------
+    G : graph
+        A networkx graph
+
+    pos : dictionary
+        A dictionary with nodes as keys and positions as values.
+        Positions should be sequences of length 2.
+
+    edge_labels : dictionary (default={})
+        Edge labels in a dictionary of labels keyed by edge two-tuple.
+        Only labels for the keys in the dictionary are drawn.
+
+    label_pos : float (default=0.5)
+        Position of edge label along edge (0=head, 0.5=center, 1=tail)
+
+    font_size : int (default=10)
+        Font size for text labels
+
+    font_color : string (default='k' black)
+        Font color string
+
+    font_weight : string (default='normal')
+        Font weight
+
+    font_family : string (default='sans-serif')
+        Font family
+
+    alpha : float or None (default=None)
+        The text transparency
+
+    bbox : Matplotlib bbox, optional
+        Specify text box properties (e.g. shape, color etc.) for edge labels.
+        Default is {boxstyle='round', ec=(1.0, 1.0, 1.0), fc=(1.0, 1.0, 1.0)}.
+
+    horizontalalignment : string (default='center')
+        Horizontal alignment {'center', 'right', 'left'}
+
+    verticalalignment : string (default='center')
+        Vertical alignment {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
+
+    ax : Matplotlib Axes object, optional
+        Draw the graph in the specified Matplotlib axes.
+
+    rotate : bool (deafult=True)
+        Rotate edge labels to lie parallel to edges
+
+    clip_on : bool (default=True)
+        Turn on clipping of edge labels at axis boundaries
+
+    Returns
+    -------
+    dict
+        `dict` of labels keyed by edge
+
+    Examples
+    --------
+    >>> G = nx.dodecahedral_graph()
+    >>> edge_labels = nx.draw_networkx_edge_labels(G, pos=nx.spring_layout(G))
+
+    Also see the NetworkX drawing examples at
+    https://networkx.org/documentation/latest/auto_examples/index.html
+
+    See Also
+    --------
+    draw
+    draw_networkx
+    draw_networkx_nodes
+    draw_networkx_edges
+    draw_networkx_labels
+    :param rad:
+    :param vertical_offset:
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    if ax is None:
+        ax = plt.gca()
+    if edge_labels is None:
+        labels = {(u, v): d for u, v, d in G.edges(data=True)}
+    else:
+        labels = edge_labels
+    text_items = {}
+    for (n1, n2), label in labels.items():
+        (x1, y1) = pos[n1]
+        (x2, y2) = pos[n2]
+        (x, y) = (
+            x1 * label_pos + x2 * (1.0 - label_pos),
+            y1 * label_pos + y2 * (1.0 - label_pos),
+        )
+        pos_1 = ax.transData.transform(np.array(pos[n1]))
+        pos_2 = ax.transData.transform(np.array(pos[n2]))
+        linear_mid = 0.5 * pos_1 + 0.5 * pos_2
+        d_pos = pos_2 - pos_1
+        rotation_matrix = np.array([(0, 1), (-1, 0)])
+        ctrl_1 = linear_mid + rad * rotation_matrix @ d_pos
+        ctrl_mid_1 = 0.5 * pos_1 + 0.5 * ctrl_1
+        ctrl_mid_2 = 0.5 * pos_2 + 0.5 * ctrl_1
+        bezier_mid = 0.5 * ctrl_mid_1 + 0.5 * ctrl_mid_2
+        (x, y) = ax.transData.inverted().transform(bezier_mid)
+        y += vertical_offset
+
+        if rotate:
+            # in degrees
+            angle = np.arctan2(y2 - y1, x2 - x1) / (2.0 * np.pi) * 360
+            # make label orientation "right-side-up"
+            if angle > 90:
+                angle -= 180
+            if angle < -90:
+                angle += 180
+            # transform data coordinate angle to screen coordinate angle
+            xy = np.array((x, y))
+            trans_angle = ax.transData.transform_angles(
+                np.array((angle,)), xy.reshape((1, 2))
+            )[0]
+        else:
+            trans_angle = 0.0
+        # use default box of white with white border
+        if bbox is None:
+            bbox = dict(boxstyle="round", ec=(1.0, 1.0, 1.0), fc=(1.0, 1.0, 1.0))
+        if not isinstance(label, str):
+            label = str(label)  # this makes "1" and 1 labeled the same
+
+        t = ax.text(
+            x,
+            y,
+            label,
+            size=font_size,
+            color=font_color,
+            family=font_family,
+            weight=font_weight,
+            alpha=alpha,
+            horizontalalignment=horizontalalignment,
+            verticalalignment=verticalalignment,
+            rotation=trans_angle,
+            transform=ax.transData,
+            bbox=bbox,
+            zorder=1,
+            clip_on=clip_on,
+        )
+        text_items[(n1, n2)] = t
+
+    ax.tick_params(
+        axis="both",
+        which="both",
+        bottom=False,
+        left=False,
+        labelbottom=False,
+        labelleft=False,
+    )
+
+    return text_items
