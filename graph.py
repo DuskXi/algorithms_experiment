@@ -97,14 +97,15 @@ class Graph:
     def adjacency_list(self):
         adjacency_list = {}
         for node in self.nodes:
+            node = self.nodes.index(str(node)) if type(node) != int else node
             adjacency_list[node] = self.neighbors(node)
         return adjacency_list
 
-    def adjacency_matrix(self, dtype='float32'):
+    def adjacency_matrix(self, dtype='float32', fill_with=None):
         adjacency_matrix = np.zeros((len(self.nodes), len(self.nodes)), dtype=dtype)
-        adjacency_matrix.fill(None)
+        adjacency_matrix.fill(fill_with)
         for edge in self.edges:
-            adjacency_matrix[edge[0], edge[1]] = edge[2]
+            adjacency_matrix[edge[0], edge[1]] = edge[2] if edge[2] != float('nan') and dtype == 'int' else 0
         return adjacency_matrix
 
     @staticmethod
@@ -117,15 +118,22 @@ class Graph:
                     graph.edges.append((i, j, adjacency_matrix[i, j]))
         return graph
 
-    def draw(self, fig=None, ax=None, alpha=0.5, integer=False):
+    def draw(self, fig=None, ax=None, alpha=0.5, integer=False, labels=None, layout=nx.spring_layout):
         if self.directed:
-            G = nx.from_numpy_array(self.adjacency_matrix(), create_using=nx.DiGraph)
+            G = nx.DiGraph()
         else:
-            G = nx.from_numpy_array(self.adjacency_matrix())
-        pos = nx.spring_layout(G)
+            G = nx.Graph()
+        for node in self.nodes:
+            G.add_node(node)
+        for edge in self.edges:
+            G.add_edge(self.nodes[edge[0]], self.nodes[edge[1]], weight=edge[2])
+
+        pos = layout(G)
         if fig is None or ax is None:
             fig, ax = plt.subplots()
-        nx.draw(G, pos, ax=ax, with_labels=True)
+        nx.draw(G, pos, ax=ax, with_labels=labels is None)
+        if labels is not None:
+            nx.draw_networkx_labels(G, pos, labels=labels, ax=ax)
         labels = nx.get_edge_attributes(G, "weight")
         nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels=labels if not integer else {k: str(int(v)) for k, v in labels.items()}, alpha=alpha)
         return fig, ax
@@ -133,10 +141,12 @@ class Graph:
     def draw_as_label_weight(self, fig=None, ax=None, alpha=0.5):
         adjacency_matrix = self.adjacency_matrix('object')
         G = nx.DiGraph() if self.directed else nx.MultiGraph()
-        for i in range(adjacency_matrix.shape[0]):
-            for j in range(adjacency_matrix.shape[1]):
-                if adjacency_matrix[j, i] is not None:
-                    G.add_edge(self.nodes[i], self.nodes[j], label=adjacency_matrix[i, j])
+        # for i in range(adjacency_matrix.shape[0]):
+        #     for j in range(adjacency_matrix.shape[1]):
+        #         if adjacency_matrix[j, i] is not None:
+        #             G.add_edge(self.nodes[i], self.nodes[j], label=adjacency_matrix[i, j])
+        for edge in self.edges:
+            G.add_edge(self.nodes[edge[0]], self.nodes[edge[1]], label=edge[2])
         pos = nx.spring_layout(G)
         if fig is None or ax is None:
             fig, ax = plt.subplots()
@@ -163,7 +173,7 @@ class Graph:
         return fig, ax
 
     def draw_as_flow_network(self, flow: np.ndarray, fig=None, ax=None, s=-1, t=-1, alpha=0.5, integer=True, kamada=True, f=True, pos=None):
-        adjacency_matrix = self.adjacency_matrix()
+        adjacency_matrix = self.adjacency_matrix(dtype='int', fill_with=0)
         if s == -1 or s not in self.nodes:
             s = self.nodes[0]
         if t == -1 or t not in self.nodes:
@@ -286,7 +296,7 @@ class TreeNode:
                 child.prune()
 
     def to_graph(self, enable_con=False):
-        graph = Graph()
+        graph = Graph(True)
         graph.add_node(self.data)
         self.add_to_graph(graph, enable_con=enable_con)
         return graph
@@ -297,19 +307,54 @@ class TreeNode:
             graph.add_edge(graph.nodes.index(self.data), graph.nodes.index(child.data), con + (1 if not child.weight else child.weight))
             child.add_to_graph(graph, con + (1 if not child.weight else child.weight) if enable_con else 0, enable_con)
 
+    # def draw(self, fig=None, ax=None, enable_con=True, show_weight=True):
+    #     graph = self.to_graph(enable_con=enable_con)
+    #     G = nx.from_numpy_array(graph.adjacency_matrix(fill_with=0))
+    #     # add node label to graph
+    #     labels = {}
+    #     for i in range(len(graph.nodes)):
+    #         labels[i] = graph.nodes[i]
+    #     nx.set_node_attributes(G, labels, "label")
+    #     labels = nx.get_node_attributes(G, 'label')
+    #     pos = graphviz_layout(G, prog="dot")
+    #     if fig is None or ax is None:
+    #         fig, ax = plt.subplots()
+    #     nx.draw(G, pos, ax=ax, with_labels=True, labels=labels)
+    #     if show_weight:
+    #         labels = nx.get_edge_attributes(G, "weight")
+    #         # draw with int
+    #         nx.draw_networkx_edge_labels(G, pos, ax=ax, edge_labels={k: str(int(v)) for k, v in labels.items()})
+    #     return fig, ax
+
     def draw(self, fig=None, ax=None, enable_con=True, show_weight=True):
         graph = self.to_graph(enable_con=enable_con)
-        G = nx.from_numpy_array(graph.adjacency_matrix())
-        # add node label to graph
-        labels = {}
-        for i in range(len(graph.nodes)):
-            labels[i] = graph.nodes[i]
-        nx.set_node_attributes(G, labels, "label")
-        labels = nx.get_node_attributes(G, 'label')
+        G = nx.DiGraph()
+        for node in graph.nodes:
+            G.add_node(node)
+        for edge in graph.edges:
+            G.add_edge(graph.nodes[edge[0]], graph.nodes[edge[1]], weight=edge[2])
         pos = graphviz_layout(G, prog="dot")
+        scale_factor = 2.0
+        # for node in pos:
+        #     pos[node] = (pos[node][0] + scale_factor, pos[node][1])
+
+        # pos = nx.spring_layout(G)
         if fig is None or ax is None:
             fig, ax = plt.subplots()
-        nx.draw(G, pos, ax=ax, with_labels=True, labels=labels)
+        nx.draw(G, pos, ax=ax, with_labels=True, node_size=600, font_size=7)
+        # 使用matplotlib的scatter函数绘制节点
+        # 使用matplotlib的plot函数绘制边
+        # for edge in G.edges():
+        #     x1, y1 = pos[edge[0]]
+        #     x2, y2 = pos[edge[1]]
+        #     ax.plot([x1, x2], [y1, y2], 'k-')
+        #
+        # for node, (x, y) in pos.items():
+        #     ax.scatter(x, y, s=600, color='lightblue')  # s参数控
+        #     ax.text(x, y, node, ha='center', va='center')
+        #
+        # plt.axis('off')
+
         if show_weight:
             labels = nx.get_edge_attributes(G, "weight")
             # draw with int

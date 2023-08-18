@@ -63,8 +63,24 @@ def run_test():
             "b": ["b"],
         }
     }
+    transfer_table = {
+        "init": {
+            "1s": ["1"]
+        },
+        "1s": {
+            "1s": ["1"],
+            "mid": ["0"]
+        },
+        "mid": {
+            "end": ["1"],
+            "mid": ["0"]
+        },
+        "end": {
+            "end": ["0", "1"],
+        }
+    }
     automata = Automata(transfer_table)
-    print(automata.run("baaab", list(transfer_table.keys())[0]))
+    print(automata.run("11111001101", list(transfer_table.keys())[0]))
     draw = automata.draw()
     plt.show()
 

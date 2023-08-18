@@ -3,6 +3,9 @@ from typing import Callable, Union
 from matplotlib import pyplot as plt
 
 from graph import TreeNode
+import matplotlib as mpl
+
+mpl.rcParams['figure.dpi'] = 300
 
 
 class Tree234:
@@ -166,12 +169,15 @@ class Tree234:
         elif len(self.parent.data) == 3:
             self.parent = self.parent.split_insert()
         self.parent.data.append(mid)
+        self.parent.data.sort()
+        i = self.parent.children.index(self)
         self.parent.children.remove(self)
         left = Tree234(self.parent, [self.data[0]])
         left.children = self.children[:2] if len(self.children) > 0 else []
         right = Tree234(self.parent, [self.data[2]])
         right.children = self.children[2:] if len(self.children) > 0 else []
-        self.parent.children += [left, right]
+        self.parent.children.insert(i, left)
+        self.parent.children.insert(i + 1, right)
         self.clean()
         return right
 
@@ -251,6 +257,52 @@ class Tree234:
             if not child.is_balanced():
                 return False
         return True
+
+
+def test_exam():
+    tree = Tree234(data=[9, 13, 17])
+
+    node57 = Tree234(tree, data=[5, 7])
+    node123 = Tree234(node57, data=[1, 2, 3])
+    node6 = Tree234(node57, data=[6])
+    node8 = Tree234(node57, data=[8])
+    node57.children = [node123, node6, node8]
+
+    node11 = Tree234(tree, data=[11])
+    node10 = Tree234(node11, data=[10])
+    node12 = Tree234(node11, data=[12])
+    node11.children = [node10, node12]
+
+    node15 = Tree234(tree, data=[15])
+    node14 = Tree234(node15, data=[14])
+    node16 = Tree234(node15, data=[16])
+    node15.children = [node14, node16]
+
+    node1912 = Tree234(tree, data=[19, 21])
+    node18 = Tree234(node1912, data=[18])
+    node20 = Tree234(node1912, data=[20])
+    node222324 = Tree234(node1912, data=[22, 23, 24])
+    node1912.children = [node18, node20, node222324]
+
+    tree.children = [node57, node11, node15, node1912]
+    # tree.children = [node257]
+
+    fig, ax, title = tree.draw()
+    plt.title('2-3-4 Tree' + title)
+    plt.show()
+
+    tree.insert(4)
+
+    fig, ax, title = tree.draw()
+    plt.title('2-3-4 Tree' + title)
+    plt.show()
+
+    tree.delete(15)
+
+    fig, ax, title = tree.draw()
+    plt.title('2-3-4 Tree' + title)
+    plt.show()
+
 
 
 def test_fuse_delete():
@@ -344,4 +396,6 @@ def run_test():
 
 if __name__ == '__main__':
     # run_test()
-    test_fuse_delete()
+    # test_fuse_delete()
+    # test_exam()
+    test_exam()
