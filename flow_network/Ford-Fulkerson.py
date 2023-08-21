@@ -6,8 +6,8 @@ from graph import Graph
 
 def ford_fulkerson(graph: Graph, s: int, t: int, pos):
     g = np.array(graph.nodes)
-    resnet = Graph.from_adjacency_matrix(np.array(graph.adjacency_matrix()), True)
-    resnet_independent = Graph.from_adjacency_matrix(np.array(graph.adjacency_matrix()), True)
+    resnet = Graph.from_adjacency_matrix(np.array(graph.adjacency_matrix('int', 0)), True)
+    resnet_independent = Graph.from_adjacency_matrix(np.array(graph.adjacency_matrix('int', 0)), True)
     while dfs(resnet, s, t) is not None:
         path = dfs(resnet, s, t)
         min_flow = min([edge[2] for edge in path])
@@ -18,7 +18,7 @@ def ford_fulkerson(graph: Graph, s: int, t: int, pos):
             resnet_independent.set_edge_weight(edge[0], edge[1], edge[2] - min_flow)
         print_resnet(resnet, pos)
 
-    return Graph.from_adjacency_matrix(np.array(graph.adjacency_matrix() - resnet_independent.adjacency_matrix()), True)
+    return Graph.from_adjacency_matrix(np.array(graph.adjacency_matrix() - resnet_independent.adjacency_matrix('int', 0)), True)
 
 
 def dfs(g: Graph, current, target, visited=[]):
@@ -47,6 +47,7 @@ def argument_path(g: Graph, path):
 
 def print_resnet(graph: Graph, pos):
     fig, ax, pos = graph.draw_as_flow_network(np.zeros((len(graph.nodes), len(graph.nodes))), f=False, pos=pos)
+    plt.title("resnet")
     plt.show()
 
 
@@ -69,7 +70,7 @@ def run_test():
 
     gf = ford_fulkerson(graph, 0, 8, pos)
 
-    graph.draw_as_flow_network(gf.adjacency_matrix())
+    graph.draw_as_flow_network(gf.adjacency_matrix('int', 0))
     plt.title('Ford-Fulkerson')
     plt.show()
 
